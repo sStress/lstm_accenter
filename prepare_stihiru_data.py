@@ -17,7 +17,7 @@ def prepare_stihiru_data(file_name):
             refined_text = refined_text + line.split('\t')[0] + '\n'
         refined_text = refined_text.strip('\n')
         #print('refined text:')
-        print(refined_text)
+        #print(refined_text)
         #print('end')
 
     return refined_text
@@ -34,6 +34,12 @@ print(files)
 
 for file_ in files:
     if file_.find('x') == 0:
+        needed_files.append(file_)
+    if file_.find('y') == 0:
+        needed_files.append(file_)
+    if file_.find('z') == 0:
+        needed_files.append(file_)
+    if file_.find('a') == 0:
         needed_files.append(file_)
 
 print('Needed files')
