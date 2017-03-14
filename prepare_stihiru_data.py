@@ -29,24 +29,22 @@ directory = '/home/gyroklim/documents/sstress/stihi_stressed_by_machine'
 for (_,_,filenames) in walk(directory):
     files.extend(filenames)
 
-print('All files:')
-print(files)
+#print('All files:')
+#print(files)
+
+def delete_stress(data):
+    return data.replace('`','')
 
 for file_ in files:
-    if file_.find('x') == 0:
-        needed_files.append(file_)
-    if file_.find('y') == 0:
-        needed_files.append(file_)
-    if file_.find('z') == 0:
-        needed_files.append(file_)
-    if file_.find('a') == 0:
+    if file_.find('mz') == 0:
         needed_files.append(file_)
 
 print('Needed files')
 print(needed_files)
 
-final_file_name = 'final_file.txt'
+final_file_name = 'test_file.txt'
 with open(final_file_name,'w') as final_file:
     for file_ in needed_files:
         data = prepare_stihiru_data(directory+'/'+file_)
+        data = delete_stress(data)
         final_file.write(data)

@@ -3,6 +3,7 @@ import tensorflow as tf
 from train_lstm import *
 
 test_file = 'clean_file.txt'
+#test_file = 'test_file.txt'
 accented_file_name = 'accented.txt'
 
 with open(test_file) as clean_data:
@@ -14,7 +15,7 @@ def accent_text(g,text_to_accent):
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        g['saver'].restore(sess,'./model_checkpoint')
+        g['saver'].restore(sess,'./model_checkpoint_long')
 
         chars = ''
         state = None
@@ -31,8 +32,8 @@ def accent_text(g,text_to_accent):
 
             preds = np.squeeze(preds)
             
-            if preds[stress_symbol_idx] > 0.09:
-                accent_text+='`'
+            #if preds[stress_symbol_idx] > 0.09:
+                #accent_text+='`'
 
             #predicted_char = np.random.rand(vocab_size,1,p=np.squeeze(preds))[0]
             preds = np.squeeze(preds)
