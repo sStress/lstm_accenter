@@ -36,4 +36,4 @@ def generate_characters(g, checkpoint, num_chars, prompt='п', pick_top_chars=No
     return("".join(chars))
         
 g = build_lstm_graph(num_steps = 1, batch_size = 1)
-generate_characters(g,'./model_checkpoint',num_chars = 300)
+generate_characters(g,'./model_checkpoint_long',num_chars = 1000,pick_top_chars = 1)
