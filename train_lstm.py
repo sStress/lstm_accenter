@@ -7,6 +7,7 @@ from os import walk
 from bs4 import BeautifulSoup as BS
 from random import shuffle
 from prepare_stihiru_data import prepare_stihiru_data
+import sys
 
 train_data_directory = '/home/gyroklim/documents/sstress/stihi_stressed_by_machine'
 
@@ -263,7 +264,6 @@ class LSTM_graph:
             g['saver'].restore(sess,checkpoint)
             self.unknown_char_idx = self.vocab_to_idx['~']
 
-            chars = ''
             state = None
 
             for char in text_to_accent:
@@ -278,20 +278,26 @@ class LSTM_graph:
                 preds,state = sess.run([g['preds'],g['final_state']],feed_dict)
 
                 if pick_top_chars is not None:
+                    predicted_char = []
                     p = np.squeeze(preds)
                     p[np.argsort(p)[:-pick_top_chars]] = 0
-                    p = p / np.sum(p)
-                    predicted_char = np.random.choice(self.vocab_size, 1, p=p)[0]
+                    predicted_chars_idx = np.nonzero(p)
+                    predicted_char.extend(predicted_chars_idx[0])
+                    predicted_char = list(map(lambda idx: self.idx_to_vocab[idx],predicted_char))
+                    #p[np.argsort(p)[:-pick_top_chars]] = 0
+                    #p = p / np.sum(p)
+                    #predicted_char = np.random.choice(self.vocab_size, 1, p=p)[0]
                 else:
                     predicted_char = np.random.choice(self.vocab_size, 1, p=np.squeeze(preds))[0]
 
-                chars += self.idx_to_vocab[predicted_char] + ' '
+                if pick_top_chars is not None:
+                    if '`' in predicted_char:
+                        accent_text+='`'
 
-                if predicted_char == self.vocab_to_idx['`']:
-                    accent_text+='`'
+                else:
+                    if predicted_char == self.vocab_to_idx['`']:
+                        accent_text+='`'
 
-        print('Predicted chars:')
-        print(chars)
         print('Accented text:')
         print(accent_text)
 
