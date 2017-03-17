@@ -1,6 +1,7 @@
 from os import walk
 from bs4 import BeautifulSoup as BS
 import re
+import time
 
 def prepare_stihiru_data(file_name):
     """
@@ -21,30 +22,3 @@ def prepare_stihiru_data(file_name):
         #print('end')
 
     return refined_text
-
-files = []
-needed_files = []
-
-directory = '/home/gyroklim/documents/sstress/stihi_stressed_by_machine'
-for (_,_,filenames) in walk(directory):
-    files.extend(filenames)
-
-#print('All files:')
-#print(files)
-
-def delete_stress(data):
-    return data.replace('`','')
-
-for file_ in files:
-    if file_.find('mz') == 0:
-        needed_files.append(file_)
-
-print('Needed files')
-print(needed_files)
-
-final_file_name = 'test_file.txt'
-with open(final_file_name,'w') as final_file:
-    for file_ in needed_files:
-        data = prepare_stihiru_data(directory+'/'+file_)
-        data = delete_stress(data)
-        final_file.write(data)

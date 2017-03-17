@@ -3,17 +3,24 @@ import numpy as np
 import datetime as dt
 import time
 import pickle
+from os import walk
+from bs4 import BeautifulSoup as BS
+from random import shuffle
+from prepare_stihiru_data import prepare_stihiru_data
+
+train_data_directory = '/home/gyroklim/documents/sstress/stihi_stressed_by_machine'
 
 vocab_file = 'vocab_data'
 
 class LSTM_graph:
 
-    def __init__(self,state_size,learning_rate,number_of_layers):
+    def __init__(self,state_size,learning_rate,number_of_layers,reduced_vocab=True):
         self.reduced_vocab = False
         self.state_size = state_size
         self.learning_rate = learning_rate
         self.number_of_layers = number_of_layers
         self.checkpoint = './model_saves/lstm_'+dt.datetime.now().isoformat()
+        self.reduced_vocab = reduced_vocab
 
     def char_to_idx(self,char):
         if self.reduced_vocab:
@@ -31,34 +38,25 @@ class LSTM_graph:
 
     
     # will be more elaborate later (will take multipli files via tensor flow input functions)
-    def prepare_data(self,file_name,stressed):
+    def prepare_data(self,file_names,stressed):
 
-        with open(file_name) as data_file:
-            raw_data = data_file.read()
-            print('Lenght of raw data is {}'.format(len(raw_data)))
+        raw_data_list = []
+        self.data_list = []
+        vocab = set()
+        for file_name in file_names:
+            prep_text = prepare_stihiru_data(file_name)
+            vocab.upgrade(prep_text)
+            raw_data_list.append(prep_text)
 
         if self.reduced_vocab:
-            vocab = set('йцукенгшщзхъфывапролджэячсмитьбюёЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮЁ?!,.:; `~')
-        else:
-            vocab = set(raw_data)
+            vocab = set('йцукенгшщзхъфывапролджэячсмитьбюёЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮЁ?!,.:; `~\n')
 
         self.vocab = vocab
         self.vocab_size = len(vocab)
         self.num_classes = self.vocab_size
 
-        print('Vocabulary:')
-        print(vocab)
-
         self.idx_to_vocab = dict(enumerate(vocab))
         self.vocab_to_idx = dict(zip(self.idx_to_vocab.values(), self.idx_to_vocab.keys()))
-        print('Vocab to index',self.vocab_to_idx)
-
-        with open(vocab_file,'wb') as vfile:
-            pickle.dump(self.vocab_to_idx,vfile)
-            pickle.dump(self.idx_to_vocab,vfile)
-            pickle.dump(self.vocab,vfile)
-            pickle.dump(self.num_classes,vfile)
-            pickle.dump(self.vocab_size,vfile)
 
         if self.reduced_vocab:
             self.unknown_char_idx = self.vocab_to_idx['~']
@@ -66,14 +64,34 @@ class LSTM_graph:
         if stressed:
             self.stress_symbol_idx = self.vocab_to_idx['`']
 
-        self.data = [self.char_to_idx(c) for c in raw_data]
+        for raw_data in raw_data_list:
+            self.data_list.append([self.char_to_idx(c) for c in raw_data])
 
-        self.data_size = len(self.data)
-        
-        del raw_data
+        del raw_data_list
 
+        # we need to remember this, cause we'll have to restart the model
+        with open(vocab_file,'wb') as vfile:
+            pickle.dump(self.vocab_to_idx,vfile)
+            pickle.dump(self.idx_to_vocab,vfile)
+            pickle.dump(self.vocab,vfile)
+            pickle.dump(self.num_classes,vfile)
+            pickle.dump(self.vocab_size,vfile)
+
+        self.data_size = 0
+        for data in self.data_list:
+            self.data_size += len(data)
+
+        print('data length',self.data_size)
+
+
+    def shuffle_train_data(self):
+        # avoiding optimiser bias
+        t = time.time()
+        shuffle(self.data_list)
+        self.data = [var for data_ in self.data_list for var in data_]
 
     def gen_batch(self,batch_size,num_steps):
+        self.shuffle_train_data()
         batch_partition_size = self.data_size // batch_size
         epoch_size = batch_partition_size // num_steps
 
@@ -207,7 +225,6 @@ class LSTM_graph:
     
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            print('Trying to restore ',checkpoint)
             g['saver'].restore(sess, checkpoint)
 
             state = None
@@ -235,3 +252,47 @@ class LSTM_graph:
         chars = map(lambda x: self.idx_to_vocab[x], chars)
         print("".join(chars))
         return("".join(chars))
+
+    def accent_text(self,g,checkpoint,text_to_accent,pick_top_chars = None):
+        accent_text = ''
+
+        tf.get_variable_scope().reuse_variables()
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            g['saver'].restore(sess,checkpoint)
+            self.unknown_char_idx = self.vocab_to_idx['~']
+
+            chars = ''
+            state = None
+
+            for char in text_to_accent:
+                accent_text+=char
+                #char_idx = vocab_to_idx[char]
+                char_idx = self.char_to_idx(char)
+                if state is not None:
+                    feed_dict={g['x']:[[char_idx]],g['init_state']:state}
+                else:
+                    feed_dict={g['x']:[[char_idx]]}
+                
+                preds,state = sess.run([g['preds'],g['final_state']],feed_dict)
+
+                if pick_top_chars is not None:
+                    p = np.squeeze(preds)
+                    p[np.argsort(p)[:-pick_top_chars]] = 0
+                    p = p / np.sum(p)
+                    predicted_char = np.random.choice(self.vocab_size, 1, p=p)[0]
+                else:
+                    predicted_char = np.random.choice(self.vocab_size, 1, p=np.squeeze(preds))[0]
+
+                chars += self.idx_to_vocab[predicted_char] + ' '
+
+                if predicted_char == self.vocab_to_idx['`']:
+                    accent_text+='`'
+
+        print('Predicted chars:')
+        print(chars)
+        print('Accented text:')
+        print(accent_text)
+
+        return accent_text
