@@ -46,7 +46,7 @@ class LSTM_graph:
         vocab = set()
         for file_name in file_names:
             prep_text = prepare_stihiru_data(file_name)
-            vocab.upgrade(prep_text)
+            vocab.update(prep_text)
             raw_data_list.append(prep_text)
 
         if self.reduced_vocab:
