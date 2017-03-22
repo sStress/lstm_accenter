@@ -1,12 +1,12 @@
 import tensorflow as tf
-from train_lstm import *
+from train_lstm import LSTM_graph
 import numpy as np
 
-state_size = 100
+state_size = 200
 learning_rate = 0.001
 number_of_layers = 3
-num_steps = 80
-batch_size = 21
+num_steps = 100
+batch_size = 50
 num_chars = 1000
 num_epochs = 1
 
@@ -15,4 +15,4 @@ lstm = LSTM_graph(state_size,learning_rate,number_of_layers)
 #lstm.prepare_data('shake.txt',False)
 
 g = lstm.rebuild_the_graph(num_steps = 1, batch_size = 1)
-lstm.generate_characters(g,'./model_saves/lstm_2017-03-16T17:56:25.271829',num_chars = 1000,pick_top_chars = 5,prompt = 'B')
+lstm.generate_characters(g,'./model_saves/lstm_3:18:51:200',num_chars = 1000,pick_top_chars = 5,prompt = 'Х')

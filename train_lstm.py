@@ -16,12 +16,17 @@ vocab_file = 'vocab_data'
 class LSTM_graph:
 
     def __init__(self,state_size,learning_rate,number_of_layers,reduced_vocab=True):
+
+        date = dt.datetime.now()
+        time_stamp = str(date.month) + ':' + str(date.hour) + ':' + str(date.minute)
+
         self.reduced_vocab = False
         self.state_size = state_size
         self.learning_rate = learning_rate
         self.number_of_layers = number_of_layers
-        self.checkpoint = './model_saves/lstm_'+dt.datetime.now().isoformat()
+        self.checkpoint = './model_saves/lstm_' + time_stamp + ':' + str(state_size)
         self.reduced_vocab = reduced_vocab
+        self.dropout = 0.5
 
     def char_to_idx(self,char):
         if self.reduced_vocab:
@@ -131,21 +136,25 @@ class LSTM_graph:
         return self.build_the_graph(num_steps, batch_size)
         
 
-    def build_the_graph(self,num_steps = 10, batch_size = 200):
+    def build_the_graph(self,num_steps = 10, batch_size = 200, with_dropout = False):
 
         self.reset_graph()
 
         x = tf.placeholder(tf.int32, [batch_size, num_steps], name='input_placeholder')
         y = tf.placeholder(tf.int32, [batch_size, num_steps], name='labels_placeholder')
 
-        #embeddings = tf.get_variable('embedding_matrix', [num_classes, state_size])
-
-        #rnn_inputs = tf.nn.embedding_lookup(embeddings, x)
         rnn_inputs = tf.one_hot(x,self.num_classes)
 
-
         cell = tf.contrib.rnn.LSTMCell(self.state_size)
+
+        if with_dropout:
+            cell = tf.contrib.rnn.DropoutWrapper(cell,input_keep_prob = self.dropout)
+
         cell = tf.contrib.rnn.MultiRNNCell([cell]*self.number_of_layers)
+
+        if with_dropout:
+            cell = tf.contrib.rnn.DropoutWrapper(cell,output_keep_prob = self.dropout)
+
         init_state = cell.zero_state(batch_size,tf.float32)
         rnn_outputs, final_state = tf.nn.dynamic_rnn(cell, rnn_inputs, initial_state=init_state)
 
@@ -175,7 +184,6 @@ class LSTM_graph:
                 final_state = final_state,
                 train_step = train_step,
                 preds = predictions,
-                saver = tf.train.Saver()
         )
 
     def train_network(self,g,num_epochs, num_steps, batch_size , verbose=True):
@@ -184,6 +192,7 @@ class LSTM_graph:
         tf.get_variable_scope().reuse_variables()
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
+            self.saver =  tf.train.Saver(tf.global_variables())
             training_losses = []
             for idx, epoch in enumerate(self.gen_epochs(num_epochs,batch_size, num_steps)):
                 t = time.time()
@@ -210,7 +219,7 @@ class LSTM_graph:
                     print("epoch trained for ",(time.time()-t)/60.,"minutes")
                 training_losses.append(training_loss/steps)
 
-            g['saver'].save(sess,self.checkpoint)
+            self.saver.save(sess,self.checkpoint)
             print('Saved to',self.checkpoint)
 
         return training_losses
@@ -223,10 +232,13 @@ class LSTM_graph:
 
         #g = self.build_the_graph(num_steps = 1,batch_size = 1)
         tf.get_variable_scope().reuse_variables()
+
+        saver =  tf.train.Saver(tf.global_variables())
     
         with tf.Session() as sess:
-            sess.run(tf.global_variables_initializer())
-            g['saver'].restore(sess, checkpoint)
+            #sess.run(tf.global_variables_initializer())
+            print('restoring ',checkpoint)
+            saver.restore(sess, checkpoint)
 
             state = None
             current_char = self.vocab_to_idx[prompt]
@@ -242,6 +254,7 @@ class LSTM_graph:
 
                 if pick_top_chars is not None:
                     p = np.squeeze(preds)
+                    p[self.vocab_to_idx['`']] = 0
                     p[np.argsort(p)[:-pick_top_chars]] = 0
                     p = p / np.sum(p)
                     current_char = np.random.choice(self.vocab_size, 1, p=p)[0]
@@ -259,9 +272,11 @@ class LSTM_graph:
 
         tf.get_variable_scope().reuse_variables()
 
+        saver =  tf.train.Saver(tf.global_variables())
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-            g['saver'].restore(sess,checkpoint)
+            saver.restore(sess,checkpoint)
             self.unknown_char_idx = self.vocab_to_idx['~']
 
             state = None
