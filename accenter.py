@@ -18,9 +18,10 @@ arguments = sys.argv
 if len(arguments) < 2:
     sys.exit('We need at least one file to accent!')
 
-lstm = LSTM_graph(state_size,learning_rate,number_of_layers)
+lstm = LSTM_graph(state_size,learning_rate,number_of_layers,'vocab.pkl')
 
-g = lstm.rebuild_the_graph(num_steps = 1, batch_size = 1)
+g = lstm.build_the_graph(num_steps = 1, batch_size = 1)
+
 
 for file_ in arguments[1:]:
     with open(file_) as clean_data:
